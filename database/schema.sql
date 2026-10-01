@@ -1,0 +1,130 @@
+-- Aahar PostgreSQL schema
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  full_name VARCHAR(120) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  phone VARCHAR(30),
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(40) NOT NULL DEFAULT 'donor',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  address TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS organizations (
+  id SERIAL PRIMARY KEY,
+  owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(180) NOT NULL,
+  organization_type VARCHAR(80) NOT NULL,
+  registration_no VARCHAR(120),
+  address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  verified BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS food_listings (
+  id SERIAL PRIMARY KEY,
+  donor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(180) NOT NULL,
+  food_type VARCHAR(50) NOT NULL,
+  quantity NUMERIC(10,2) NOT NULL,
+  unit VARCHAR(30) NOT NULL DEFAULT 'kg',
+  preparation_time TIMESTAMP,
+  expiry_at TIMESTAMP,
+  dietary_labels VARCHAR(300),
+  notes TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  address TEXT,
+  status VARCHAR(30) NOT NULL DEFAULT 'available',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS food_requests (
+  id SERIAL PRIMARY KEY,
+  listing_id INTEGER NOT NULL REFERENCES food_listings(id) ON DELETE CASCADE,
+  requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  requested_quantity NUMERIC(10,2) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS deliveries (
+  id SERIAL PRIMARY KEY,
+  listing_id INTEGER NOT NULL REFERENCES food_listings(id) ON DELETE CASCADE,
+  request_id INTEGER REFERENCES food_requests(id) ON DELETE SET NULL,
+  volunteer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  donor_lat DOUBLE PRECISION,
+  donor_lng DOUBLE PRECISION,
+  destination_lat DOUBLE PRECISION,
+  destination_lng DOUBLE PRECISION,
+  vehicle_no VARCHAR(50),
+  status VARCHAR(40) NOT NULL DEFAULT 'assigned',
+  pickup_at TIMESTAMP,
+  delivered_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS delivery_locations (
+  id SERIAL PRIMARY KEY,
+  delivery_id INTEGER NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(180) NOT NULL,
+  message TEXT NOT NULL,
+  channel VARCHAR(30) NOT NULL DEFAULT 'in_app',
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS device_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(500) UNIQUE NOT NULL,
+  platform VARCHAR(30) NOT NULL DEFAULT 'web',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(180) NOT NULL,
+  description TEXT,
+  community_worker_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  status VARCHAR(30) NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS feedback (
+  id SERIAL PRIMARY KEY,
+  from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  listing_id INTEGER REFERENCES food_listings(id) ON DELETE SET NULL,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS impact_metrics (
+  id SERIAL PRIMARY KEY,
+  date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  food_rescued_kg NUMERIC(12,2) NOT NULL DEFAULT 0,
+  meals_served INTEGER NOT NULL DEFAULT 0,
+  people_reached INTEGER NOT NULL DEFAULT 0,
+  organizations_helped INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_food_status ON food_listings(status);
+CREATE INDEX IF NOT EXISTS idx_food_location ON food_listings(latitude,longitude);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_delivery_status ON deliveries(status);
